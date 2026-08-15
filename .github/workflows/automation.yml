@@ -14,29 +14,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run health check
-        run: |
-          echo "================================"
-          echo " TERMUX MEDIA HUB"
-          echo "================================"
-          echo "Status : ONLINE"
-          echo "Runner : GitHub Actions"
-          echo "Date   : $(date -u)"
-          echo "Git    : $(git --version)"
-          echo "================================"
+      - name: Make health checker executable
+        run: chmod +x scripts/url-health-check.sh
 
-      - name: Create status report
-        run: |
-          mkdir -p output
-          cat > output/status.txt <<REPORT
-          TERMUX MEDIA HUB
-          Status: ONLINE
-          Runner: GitHub Actions
-          Time: $(date -u)
-          REPORT
+      - name: Run URL health checker
+        run: ./scripts/url-health-check.sh
 
-      - name: Upload status report
+      - name: Show health report
+        run: cat output/health-report.csv
+
+      - name: Upload health report
         uses: actions/upload-artifact@v4
         with:
-          name: media-hub-status
-          path: output/status.txt
+          name: url-health-report
+          path: output/health-report.csv

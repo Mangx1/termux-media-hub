@@ -1,0 +1,4 @@
+# One URL per line.
+# Lines beginning with # are ignored.
+# Add your IPTV, media, API, or other URLs below.
+https://example.com/
