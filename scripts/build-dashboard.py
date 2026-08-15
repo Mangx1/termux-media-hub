@@ -5,7 +5,7 @@ import html
 import os
 from datetime import datetime, timezone
 
-INPUT = "output/m3u8-report.csv"
+INPUT = "output/final-report.csv"
 OUTPUT = "public/index.html"
 
 os.makedirs("public", exist_ok=True)
@@ -17,49 +17,132 @@ if os.path.exists(INPUT):
         rows = list(csv.DictReader(f))
 
 total = len(rows)
-up = sum(1 for r in rows if r["status"] == "UP")
-down = total - up
-rate = (up / total * 100) if total else 0
 
-generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+counts = {}
+
+for r in rows:
+    status = r.get("classification", "UNVERIFIED")
+    counts[status] = counts.get(status, 0) + 1
+
+online = counts.get("ONLINE", 0)
+dead = counts.get("DEAD", 0)
+blocked = counts.get("BLOCKED", 0)
+temporary = counts.get("TEMPORARY", 0)
+unverified = counts.get("UNVERIFIED", 0)
+invalid = counts.get("INVALID", 0)
+
+rate = online / total * 100 if total else 0
+
+generated = datetime.now(timezone.utc).strftime(
+    "%Y-%m-%d %H:%M:%S UTC"
+)
 
 
-def status_badge(status):
-    if status == "UP":
-        return '<span class="badge up">● ONLINE</span>'
-    return '<span class="badge down">● OFFLINE</span>'
+def badge(status):
+    labels = {
+        "ONLINE": ("ONLINE", "online"),
+        "DEAD": ("DEAD", "dead"),
+        "BLOCKED": ("BLOCKED", "blocked"),
+        "TEMPORARY": ("TEMPORARY", "temporary"),
+        "UNVERIFIED": ("UNVERIFIED", "unverified"),
+        "INVALID": ("INVALID", "invalid"),
+    }
+
+    label, css = labels.get(
+        status,
+        ("UNKNOWN", "unverified")
+    )
+
+    return f'<span class="badge {css}">● {label}</span>'
 
 
 cards = []
 
 for r in rows:
-    url = html.escape(r["url"])
-    status = html.escape(r["status"])
-    detail = html.escape(r["detail"])
-    playlist_type = html.escape(r["playlist_type"])
-    variants = html.escape(r["variants"])
-    http_code = html.escape(r["http_code"])
-    playlist_time = html.escape(r["playlist_time"])
-    segment_time = html.escape(r["segment_time"])
-    total_time = html.escape(r["total_time"])
+    channel = html.escape(
+        r.get("channel", "Unknown")
+    )
+
+    group = html.escape(
+        r.get("group", "")
+    )
+
+    stream_type = html.escape(
+        r.get("type", "")
+    )
+
+    url = html.escape(
+        r.get("url", "")
+    )
+
+    classification = r.get(
+        "classification",
+        "UNVERIFIED"
+    )
+
+    detail = html.escape(
+        r.get("final_detail", "")
+    )
+
+    http = html.escape(
+        r.get("http_code", "")
+    )
+
+    response = html.escape(
+        r.get("response_time", "")
+    )
+
+    segment = html.escape(
+        r.get("segment_time", "")
+    )
 
     cards.append(f"""
-    <article class="channel">
+    <article class="channel {classification.lower()}">
+
       <div class="channel-head">
-        <div class="channel-name">{url}</div>
-        {status_badge(status)}
+
+        <div>
+          <div class="channel-name">{channel}</div>
+          <div class="group">{group}</div>
+        </div>
+
+        {badge(classification)}
+
       </div>
 
       <div class="grid">
-        <div><small>TYPE</small><strong>{playlist_type}</strong></div>
-        <div><small>VARIANTS</small><strong>{variants}</strong></div>
-        <div><small>HTTP</small><strong>{http_code}</strong></div>
-        <div><small>PLAYLIST</small><strong>{playlist_time}s</strong></div>
-        <div><small>SEGMENT</small><strong>{segment_time}s</strong></div>
-        <div><small>TOTAL</small><strong>{total_time}s</strong></div>
+
+        <div>
+          <small>TYPE</small>
+          <strong>{stream_type}</strong>
+        </div>
+
+        <div>
+          <small>HTTP</small>
+          <strong>{http}</strong>
+        </div>
+
+        <div>
+          <small>RESPONSE</small>
+          <strong>{response}s</strong>
+        </div>
+
+        <div>
+          <small>SEGMENT</small>
+          <strong>{segment}s</strong>
+        </div>
+
       </div>
 
-      <div class="detail">{detail}</div>
+      <div class="detail">
+        {detail}
+      </div>
+
+      <details>
+        <summary>Show URL</summary>
+        <code>{url}</code>
+      </details>
+
     </article>
     """)
 
@@ -67,208 +150,337 @@ channels = "\n".join(cards)
 
 html_page = f"""<!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="300">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<meta http-equiv="refresh"
+      content="300">
+
 <title>Termux Media Hub</title>
 
 <style>
+
 * {{
-  box-sizing: border-box;
+    box-sizing: border-box;
 }}
 
 body {{
-  margin: 0;
-  background: #0b1020;
-  color: #f5f7ff;
-  font-family: system-ui, -apple-system, sans-serif;
+    margin: 0;
+    background: #080b12;
+    color: #f5f7ff;
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
 }}
 
 .container {{
-  width: min(1000px, 92%);
-  margin: auto;
-  padding: 30px 0 50px;
+    width: min(1100px, 94%);
+    margin: auto;
+    padding: 28px 0 60px;
 }}
 
 header {{
-  margin-bottom: 24px;
+    margin-bottom: 25px;
 }}
 
 h1 {{
-  margin: 0;
-  font-size: 30px;
+    margin: 0;
+    font-size: 30px;
 }}
 
 .subtitle {{
-  color: #9da7bd;
-  margin-top: 6px;
+    color: #8d98ad;
+    margin-top: 6px;
 }}
 
 .stats {{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin: 24px 0;
-}}
-
-.stat, .channel {{
-  background: #151c30;
-  border: 1px solid #26304a;
-  border-radius: 16px;
+    display: grid;
+    grid-template-columns:
+        repeat(6, 1fr);
+    gap: 10px;
+    margin: 25px 0;
 }}
 
 .stat {{
-  padding: 18px;
+    background: #121824;
+    border: 1px solid #252e40;
+    border-radius: 14px;
+    padding: 15px;
 }}
 
 .stat small {{
-  display: block;
-  color: #8f9ab3;
-  font-size: 11px;
+    color: #7f8ba2;
+    font-size: 10px;
 }}
 
 .stat strong {{
-  display: block;
-  font-size: 26px;
-  margin-top: 5px;
+    display: block;
+    margin-top: 5px;
+    font-size: 24px;
 }}
 
 .channel {{
-  padding: 20px;
-  margin-bottom: 14px;
+    background: #111722;
+    border: 1px solid #252e40;
+    border-radius: 15px;
+    padding: 18px;
+    margin-bottom: 11px;
 }}
 
 .channel-head {{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
 }}
 
 .channel-name {{
-  overflow-wrap: anywhere;
-  font-weight: 700;
+    font-weight: 700;
+    font-size: 16px;
+}}
+
+.group {{
+    color: #707c94;
+    font-size: 11px;
+    margin-top: 3px;
 }}
 
 .badge {{
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  white-space: nowrap;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    white-space: nowrap;
 }}
 
-.up {{
-  background: #123b2a;
-  color: #4cffaa;
+.online {{
+    border-color: #164c35;
 }}
 
-.down {{
-  background: #401b24;
-  color: #ff6b7d;
+.dead {{
+    border-color: #57222a;
+}}
+
+.blocked {{
+    border-color: #5b4520;
+}}
+
+.temporary {{
+    border-color: #59401d;
+}}
+
+.unverified {{
+    border-color: #343d51;
+}}
+
+.invalid {{
+    border-color: #54264d;
+}}
+
+.badge.online {{
+    background: #103725;
+    color: #4cffaa;
+}}
+
+.badge.dead {{
+    background: #411b23;
+    color: #ff6b7d;
+}}
+
+.badge.blocked {{
+    background: #493915;
+    color: #ffd66b;
+}}
+
+.badge.temporary {{
+    background: #493315;
+    color: #ffbd66;
+}}
+
+.badge.unverified {{
+    background: #252d3d;
+    color: #b6c0d4;
+}}
+
+.badge.invalid {{
+    background: #42203c;
+    color: #ff8be0;
 }}
 
 .grid {{
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-  margin-top: 18px;
+    display: grid;
+    grid-template-columns:
+        repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 16px;
 }}
 
 .grid div {{
-  background: #0e1527;
-  border-radius: 10px;
-  padding: 10px;
+    background: #0b1019;
+    border-radius: 9px;
+    padding: 9px;
 }}
 
 .grid small {{
-  display: block;
-  color: #7f8aa5;
-  font-size: 9px;
+    display: block;
+    color: #707c94;
+    font-size: 9px;
 }}
 
 .grid strong {{
-  display: block;
-  margin-top: 3px;
+    display: block;
+    margin-top: 3px;
 }}
 
 .detail {{
-  margin-top: 14px;
-  color: #8f9ab3;
-  font-size: 13px;
+    color: #929db2;
+    font-size: 12px;
+    margin-top: 13px;
+}}
+
+details {{
+    margin-top: 12px;
+}}
+
+summary {{
+    cursor: pointer;
+    color: #8390a8;
+    font-size: 12px;
+}}
+
+code {{
+    display: block;
+    margin-top: 8px;
+    padding: 10px;
+    background: #080c13;
+    border-radius: 8px;
+    color: #aeb9cc;
+    overflow-wrap: anywhere;
+    font-size: 11px;
 }}
 
 footer {{
-  color: #68738b;
-  text-align: center;
-  margin-top: 30px;
-  font-size: 12px;
+    color: #606b80;
+    text-align: center;
+    margin-top: 30px;
+    font-size: 11px;
 }}
 
-@media (max-width: 700px) {{
-  .stats {{
-    grid-template-columns: repeat(2, 1fr);
-  }}
+@media(max-width:800px) {{
 
-  .grid {{
-    grid-template-columns: repeat(3, 1fr);
-  }}
+    .stats {{
+        grid-template-columns:
+            repeat(3, 1fr);
+    }}
 
-  h1 {{
-    font-size: 24px;
-  }}
 }}
+
+@media(max-width:550px) {{
+
+    .stats {{
+        grid-template-columns:
+            repeat(2, 1fr);
+    }}
+
+    .grid {{
+        grid-template-columns:
+            repeat(2, 1fr);
+    }}
+
+    h1 {{
+        font-size: 24px;
+    }}
+
+}}
+
 </style>
+
 </head>
 
 <body>
+
 <div class="container">
 
 <header>
-  <h1>📡 Termux Media Hub</h1>
-  <div class="subtitle">M3U8 IPTV Intelligence Dashboard</div>
+
+<h1>📡 Termux Media Hub</h1>
+
+<div class="subtitle">
+Playlist Intelligence Dashboard
+</div>
+
 </header>
 
 <section class="stats">
-  <div class="stat">
-    <small>TOTAL</small>
-    <strong>{total}</strong>
-  </div>
 
-  <div class="stat">
-    <small>ONLINE</small>
-    <strong>{up}</strong>
-  </div>
+<div class="stat">
+<small>TOTAL</small>
+<strong>{total}</strong>
+</div>
 
-  <div class="stat">
-    <small>OFFLINE</small>
-    <strong>{down}</strong>
-  </div>
+<div class="stat">
+<small>ONLINE</small>
+<strong>{online}</strong>
+</div>
 
-  <div class="stat">
-    <small>SUCCESS</small>
-    <strong>{rate:.1f}%</strong>
-  </div>
+<div class="stat">
+<small>DEAD</small>
+<strong>{dead}</strong>
+</div>
+
+<div class="stat">
+<small>BLOCKED</small>
+<strong>{blocked}</strong>
+</div>
+
+<div class="stat">
+<small>UNVERIFIED</small>
+<strong>{unverified}</strong>
+</div>
+
+<div class="stat">
+<small>ONLINE RATE</small>
+<strong>{rate:.1f}%</strong>
+</div>
+
 </section>
 
 <section>
+
 {channels}
+
 </section>
 
 <footer>
-  Generated automatically · {generated}
+
+Generated automatically · {generated}
+
 </footer>
 
 </div>
+
 </body>
+
 </html>
 """
 
-with open(OUTPUT, "w", encoding="utf-8") as f:
+with open(
+    OUTPUT,
+    "w",
+    encoding="utf-8"
+) as f:
     f.write(html_page)
 
-print(f"Dashboard created: {OUTPUT}")
-print(f"Channels: {total}")
-print(f"Online: {up}")
-print(f"Offline: {down}")
-print(f"Success: {rate:.1f}%")
+print("Dashboard created:", OUTPUT)
+print("Total:", total)
+print("Online:", online)
+print("Dead:", dead)
+print("Blocked:", blocked)
+print("Unverified:", unverified)
+print("Online rate:", f"{rate:.1f}%")

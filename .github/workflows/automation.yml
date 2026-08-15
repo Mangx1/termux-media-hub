@@ -16,38 +16,68 @@ permissions:
   id-token: write
 
 jobs:
-  m3u8-check:
+
+  playlist-intelligence:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Check Python
         run: python3 --version
 
-      - name: Make checkers executable
+      - name: Make scripts executable
         run: |
-          chmod +x scripts/m3u8-check.py
+          chmod +x scripts/check-playlist.py
+          chmod +x scripts/retry-errors.py
+          chmod +x scripts/final-report.py
           chmod +x scripts/build-dashboard.py
 
-      - name: Run M3U8 intelligence checker
-        run: python3 scripts/m3u8-check.py
+      - name: Read playlist URL
+        id: playlist
+        run: |
+          URL=$(grep -v '^#' data/playlist-url.txt | grep -v '^$' | head -n 1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Playlist: $URL"
 
-      - name: Build web dashboard
-        run: python3 scripts/build-dashboard.py
+      - name: Scan playlist
+        run: |
+          python3 scripts/check-playlist.py \
+            "${{ steps.playlist.outputs.url }}"
 
-      - name: Show M3U8 report
-        run: cat output/m3u8-report.csv
+      - name: Retry failed streams
+        run: |
+          python3 scripts/retry-errors.py
 
-      - name: Show dashboard files
-        run: ls -lh public/index.html
+      - name: Build final report
+        run: |
+          python3 scripts/final-report.py
 
-      - name: Upload M3U8 report
+      - name: Build dashboard
+        run: |
+          python3 scripts/build-dashboard.py
+
+      - name: Show final summary
+        run: |
+          echo "========================================"
+          echo "       FINAL PLAYLIST REPORT"
+          echo "========================================"
+          cat output/final-summary.txt
+          echo
+          echo "Dashboard:"
+          ls -lh public/index.html
+
+      - name: Upload final report
         uses: actions/upload-artifact@v4
         with:
-          name: m3u8-health-report
-          path: output/m3u8-report.csv
+          name: playlist-final-report
+          path: |
+            output/playlist-report.csv
+            output/retry-report.csv
+            output/final-report.csv
+            output/final-summary.txt
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -55,7 +85,7 @@ jobs:
           path: public
 
   deploy:
-    needs: m3u8-check
+    needs: playlist-intelligence
     runs-on: ubuntu-latest
 
     environment:
@@ -63,6 +93,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
