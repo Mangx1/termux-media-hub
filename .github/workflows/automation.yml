@@ -7,24 +7,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  health-check:
+  m3u8-check:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Make health checker executable
-        run: chmod +x scripts/url-health-check.sh
+      - name: Check Python
+        run: python3 --version
 
-      - name: Run URL health checker
-        run: ./scripts/url-health-check.sh
+      - name: Make checker executable
+        run: chmod +x scripts/m3u8-check.py
 
-      - name: Show health report
-        run: cat output/health-report.csv
+      - name: Run M3U8 checker
+        run: python3 scripts/m3u8-check.py
 
-      - name: Upload health report
+      - name: Show M3U8 report
+        run: cat output/m3u8-report.csv
+
+      - name: Upload M3U8 report
         uses: actions/upload-artifact@v4
         with:
-          name: url-health-report
-          path: output/health-report.csv
+          name: m3u8-health-report
+          path: output/m3u8-report.csv
