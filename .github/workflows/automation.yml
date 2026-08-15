@@ -1,0 +1,42 @@
+name: Termux Media Hub
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run health check
+        run: |
+          echo "================================"
+          echo " TERMUX MEDIA HUB"
+          echo "================================"
+          echo "Status : ONLINE"
+          echo "Runner : GitHub Actions"
+          echo "Date   : $(date -u)"
+          echo "Git    : $(git --version)"
+          echo "================================"
+
+      - name: Create status report
+        run: |
+          mkdir -p output
+          cat > output/status.txt <<REPORT
+          TERMUX MEDIA HUB
+          Status: ONLINE
+          Runner: GitHub Actions
+          Time: $(date -u)
+          REPORT
+
+      - name: Upload status report
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-hub-status
+          path: output/status.txt
